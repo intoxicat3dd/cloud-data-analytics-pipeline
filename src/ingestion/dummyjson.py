@@ -2,10 +2,14 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import boto3
 import requests
 
 
 BASE_URL = "https://dummyjson.com"
+
+AWS_PROFILE = "cloud-data-pipeline"
+S3_BUCKET = "cloud-data-analytics-pipeline-intoxicat3dd"
 
 HEADERS = {
     "User-Agent": "CloudDataAnalyticsPipeline/1.0"
@@ -86,8 +90,23 @@ def save_json(data, output_file, source):
         json.dump(output, file, indent=2, ensure_ascii=False)
 
 
+def upload_to_s3(local_file, s3_key):
+    """Upload a local file to the project S3 bucket."""
+
+    session = boto3.Session(profile_name=AWS_PROFILE)
+    s3 = session.client("s3")
+
+    s3.upload_file(
+        str(local_file),
+        S3_BUCKET,
+        s3_key,
+    )
+
+    print(f"Uploaded to s3://{S3_BUCKET}/{s3_key}")
+
+
 def main():
-    """Run the complete DummyJSON ingestion process."""
+    """Run the complete DummyJSON ingestion and S3 upload process."""
 
     print("Starting DummyJSON ingestion...")
 
@@ -111,7 +130,18 @@ def main():
 
     print(f"Products saved to: {PRODUCTS_FILE}")
     print(f"Carts saved to: {CARTS_FILE}")
-    print("Ingestion completed successfully.")
+
+    upload_to_s3(
+        PRODUCTS_FILE,
+        "raw/products/products_raw.json",
+    )
+
+    upload_to_s3(
+        CARTS_FILE,
+        "raw/carts/carts_raw.json",
+    )
+
+    print("Pipeline completed successfully.")
 
 
 if __name__ == "__main__":
