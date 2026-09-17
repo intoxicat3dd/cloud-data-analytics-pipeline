@@ -1,15 +1,18 @@
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
 import requests
+from dotenv import load_dotenv
 
 
 BASE_URL = "https://dummyjson.com"
 
-AWS_PROFILE = "cloud-data-pipeline"
-S3_BUCKET = "cloud-data-analytics-pipeline-intoxicat3dd"
+load_dotenv()
+AWS_PROFILE = os.getenv("AWS_PROFILE")
+S3_BUCKET = os.getenv("S3_BUCKET")
 
 HEADERS = {
     "User-Agent": "CloudDataAnalyticsPipeline/1.0"
@@ -93,7 +96,10 @@ def save_json(data, output_file, source):
 def upload_to_s3(local_file, s3_key):
     """Upload a local file to the project S3 bucket."""
 
-    session = boto3.Session(profile_name=AWS_PROFILE)
+    if not S3_BUCKET:
+        raise ValueError("Set S3_BUCKET in .env before uploading to S3.")
+
+    session = boto3.Session(profile_name=AWS_PROFILE) if AWS_PROFILE else boto3.Session()
     s3 = session.client("s3")
 
     s3.upload_file(
@@ -105,8 +111,8 @@ def upload_to_s3(local_file, s3_key):
     print(f"Uploaded to s3://{S3_BUCKET}/{s3_key}")
 
 
-def main():
-    """Run the complete DummyJSON ingestion and S3 upload process."""
+def main(upload=False):
+    """Extract DummyJSON data locally, optionally landing it in S3."""
 
     print("Starting DummyJSON ingestion...")
 
@@ -131,15 +137,9 @@ def main():
     print(f"Products saved to: {PRODUCTS_FILE}")
     print(f"Carts saved to: {CARTS_FILE}")
 
-    upload_to_s3(
-        PRODUCTS_FILE,
-        "raw/products/products_raw.json",
-    )
-
-    upload_to_s3(
-        CARTS_FILE,
-        "raw/carts/carts_raw.json",
-    )
+    if upload:
+        upload_to_s3(PRODUCTS_FILE, "raw/products/products_raw.json")
+        upload_to_s3(CARTS_FILE, "raw/carts/carts_raw.json")
 
     print("Pipeline completed successfully.")
 
